@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # Copied from http://voorloopnul.com/blog/a-python-proxy-in-less-than-100-lines-of-code/
+# python proxy.py -h : displays usage
 
 # This is a simple port-forward / proxy, written using only the default python
 # library. If you want to make a suggestion or fix something you can contact-me
@@ -32,15 +33,24 @@ class Forward:
 class TheServer:
     input_list = []
     channel = {}
+    in_host = ""
+    in_port = 0
+    out_host = ""
+    out_port = 0
 
-    def __init__(self, host, port):
+    def __init__(self, in_host, in_port, out_host, out_port):
+        self.in_host = in_host
+        self.in_port = in_port
+        self.out_host = out_host
+        self.out_port = out_port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind((host, port))
+        self.server.bind((self.in_host, self.in_port))
         self.server.listen(200)
 
     def main_loop(self):
         self.input_list.append(self.server)
+        print "Initializing proxy from %s:%d to %s:%d" % (self.in_host, self.in_port, self.out_host, self.out_port)
         while 1:
             time.sleep(delay)
             ss = select.select
@@ -58,7 +68,7 @@ class TheServer:
                     self.on_recv()
 
     def on_accept(self):
-        forward = Forward().start(forward_to[0], forward_to[1])
+        forward = Forward().start(self.out_host, self.out_port)
         clientsock, clientaddr = self.server.accept()
         if forward:
             print clientaddr, "has connected"
@@ -91,8 +101,20 @@ class TheServer:
         print data
         self.channel[self.s].send(data)
 
+def display_usage():
+    print "python %s -h: prints this help" % sys.argv[0]
+    print "python %s [in_port] [out_host] [out_port]: starts proxy in local port [in_port] forwarding to [out_host]:[out_port]" % sys.argv[0]
+
 if __name__ == '__main__':
-        server = TheServer('', 9090)
+        if (len(sys.argv) != 1 and sys.argv[1] == '-h'):
+            display_usage();
+            sys.exit(1)
+
+        in_port = sys.argv[1] if len(sys.argv) > 1 else "8080"
+        out_host = sys.argv[2] if len(sys.argv) > 2 else "localhost"
+        out_port = sys.argv[3] if len(sys.argv) > 3 else "80"
+
+        server = TheServer('', int(in_port), out_host, int(out_port))
         try:
             server.main_loop()
         except KeyboardInterrupt:
